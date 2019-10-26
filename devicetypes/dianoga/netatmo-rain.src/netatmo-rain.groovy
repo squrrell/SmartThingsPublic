@@ -15,8 +15,6 @@
  */
 metadata {
 	definition (name: "Netatmo Rain", namespace: "dianoga", author: "Brian Steere") {
-		capability "Sensor"
-	
 		attribute "rain", "number"
         attribute "rainSumHour", "number"
         attribute "rainSumDay", "number"

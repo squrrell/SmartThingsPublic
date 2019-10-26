@@ -1,4 +1,3 @@
-import groovy.json.JsonOutput
 /**
  *  Logitech Harmony Hub
  *
@@ -8,7 +7,6 @@ metadata {
 	definition (name: "Logitech Harmony Hub C2C", namespace: "smartthings", author: "SmartThings") {
 		capability "Media Controller"
         capability "Refresh"
-		capability "Health Check"
         
         command "activityoff"   
         command "alloff" 
@@ -40,20 +38,6 @@ metadata {
 	}
 }
 
-def initialize() {
-	sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "cloud", scheme:"untracked"]), displayed: false)
-}
-
-def installed() {
-	log.debug "installed()"
-	initialize()
-}
-
-def updated() {
-	log.debug "updated()"
-	initialize()
-}
-
 def startActivity(String activityId) {
 	log.debug "Executing 'Start Activity'"
 	log.trace parent.activity("$device.deviceNetworkId-$activityId","start")    
@@ -72,10 +56,6 @@ def alloff() {
 def poll() {
 	log.debug "Executing 'Poll'"
 	log.trace parent.poll()
-}
-
-def ping() {
-	refresh()
 }
 
 def refresh() {

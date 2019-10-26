@@ -12,7 +12,7 @@
  *
  */
 metadata {
-	definition (name: "Aeon Multisensor", namespace: "smartthings", author: "SmartThings", runLocally: true, minHubCoreVersion: '000.017.0012', executeCommandsLocally: false) {
+	definition (name: "Aeon Multisensor", namespace: "smartthings", author: "SmartThings") {
 		capability "Motion Sensor"
 		capability "Temperature Measurement"
 		capability "Relative Humidity Measurement"
@@ -20,7 +20,6 @@ metadata {
 		capability "Illuminance Measurement"
 		capability "Sensor"
 		capability "Battery"
-		capability "Health Check"
 
 		fingerprint deviceId: "0x2001", inClusters: "0x30,0x31,0x80,0x84,0x70,0x85,0x72,0x86"
 	}
@@ -60,8 +59,8 @@ metadata {
 	tiles(scale: 2) {
 		multiAttributeTile(name:"motion", type: "generic", width: 6, height: 4){
 			tileAttribute ("device.motion", key: "PRIMARY_CONTROL") {
-				attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#00a0dc"
-				attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#cccccc"
+				attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
+				attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
 			}
 		}
 		valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
@@ -80,7 +79,7 @@ metadata {
 			state "humidity", label:'${currentValue}% humidity', unit:""
 		}
 		valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
-			state "luminosity", label:'${currentValue} lux', unit:""
+			state "luminosity", label:'${currentValue} ${unit}', unit:"lux"
 		}
 		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "battery", label:'${currentValue}% battery', unit:""
@@ -92,16 +91,6 @@ metadata {
 		main(["motion", "temperature", "humidity", "illuminance"])
 		details(["motion", "temperature", "humidity", "illuminance", "battery", "configure"])
 	}
-}
-
-def installed(){
-// Device-Watch simply pings if no device events received for 32min(checkInterval)
-	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-}
-
-def updated(){
-// Device-Watch simply pings if no device events received for 32min(checkInterval)
-	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
 // Parse incoming device messages to generate events
@@ -155,6 +144,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	map.name = "battery"
 	map.value = cmd.batteryLevel > 0 ? cmd.batteryLevel.toString() : 1
 	map.unit = "%"
+	map.displayed = false
 	map
 }
 
@@ -189,13 +179,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	[:]
 }
 
-/**
- * PING is used by Device-Watch in attempt to reach the Device
- * */
-def ping() {
-	secure(zwave.batteryV1.batteryGet())
-}
-
 def configure() {
 	delayBetween([
 		// send binary sensor report instead of basic set for motion
@@ -210,30 +193,4 @@ def configure() {
 		// set data reporting period to 5 minutes
 		zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: 300).format()
 	])
-}
-
-private def getTimeOptionValueMap() { [
-		"20 seconds" : 20,
-		"40 seconds" : 40,
-		"1 minute"   : 60,
-		"2 minutes"  : 2*60,
-		"3 minutes"  : 3*60,
-		"4 minutes"  : 4*60,
-		"5 minutes"  : 5*60,
-		"8 minutes"  : 8*60,
-		"15 minutes" : 15*60,
-		"30 minutes" : 30*60,
-		"1 hours"    : 1*60*60,
-		"6 hours"    : 6*60*60,
-		"12 hours"   : 12*60*60,
-		"18 hours"   : 18*60*60,
-		"24 hours"   : 24*60*60,
-]}
-
-private setConfigured(configure) {
-	updateDataValue("configured", configure)
-}
-
-private isConfigured() {
-	getDataValue("configured") == "true"
 }

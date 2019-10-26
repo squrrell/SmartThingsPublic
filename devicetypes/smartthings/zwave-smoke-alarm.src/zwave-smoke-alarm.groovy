@@ -12,16 +12,15 @@
  *
  */
 metadata {
-	definition (name: "Z-Wave Smoke Alarm", namespace: "smartthings", author: "SmartThings", runLocally: true, minHubCoreVersion: '000.017.0012', executeCommandsLocally: false) {
+	definition (name: "Z-Wave Smoke Alarm", namespace: "smartthings", author: "SmartThings") {
 		capability "Smoke Detector"
 		capability "Carbon Monoxide Detector"
 		capability "Sensor"
 		capability "Battery"
-		capability "Health Check"
 
 		attribute "alarmState", "string"
 
-		fingerprint mfr:"0138", prod:"0001", model:"0002", deviceJoinName: "First Alert Smoke Detector and Carbon Monoxide Alarm (ZCOMBO)"
+		fingerprint deviceId: "0xA100", inClusters: "0x20,0x80,0x70,0x85,0x71,0x72,0x86"
 	}
 
 	simulator {
@@ -52,20 +51,6 @@ metadata {
 	}
 }
 
-def installed() {
-// Device checks in every hour, this interval allows us to miss one check-in notification before marking offline
-	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-	def cmds = []
-	createSmokeOrCOEvents("allClear", cmds) // allClear to set inital states for smoke and CO
-	cmds.each { cmd -> sendEvent(cmd) }
-}
-
-def updated() {
-// Device checks in every hour, this interval allows us to miss one check-in notification before marking offline
-	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-}
-
 def parse(String description) {
 	def results = []
 	if (description.startsWith("Err")) {
@@ -76,49 +61,37 @@ def parse(String description) {
 			zwaveEvent(cmd, results)
 		}
 	}
-	log.debug "'$description' parsed to ${results.inspect()}"
+	// log.debug "\"$description\" parsed to ${results.inspect()}"
 	return results
 }
 
+
 def createSmokeOrCOEvents(name, results) {
 	def text = null
-	switch (name) {
-		case "smoke":
-			text = "$device.displayName smoke was detected!"
-			// these are displayed:false because the composite event is the one we want to see in the app
-			results << createEvent(name: "smoke",          value: "detected", descriptionText: text, displayed: false)
-			break
-		case "carbonMonoxide":
-			text = "$device.displayName carbon monoxide was detected!"
-			results << createEvent(name: "carbonMonoxide", value: "detected", descriptionText: text, displayed: false)
-			break
-		case "tested":
-			text = "$device.displayName was tested"
-			results << createEvent(name: "smoke",          value: "tested", descriptionText: text, displayed: false)
-			results << createEvent(name: "carbonMonoxide", value: "tested", descriptionText: text, displayed: false)
-			break
-		case "smokeClear":
-			text = "$device.displayName smoke is clear"
-			results << createEvent(name: "smoke",          value: "clear", descriptionText: text, displayed: false)
-			name = "clear"
-			break
-		case "carbonMonoxideClear":
-			text = "$device.displayName carbon monoxide is clear"
-			results << createEvent(name: "carbonMonoxide", value: "clear", descriptionText: text, displayed: false)
-			name = "clear"
-			break
-		case "allClear":
-			text = "$device.displayName all clear"
-			results << createEvent(name: "smoke",          value: "clear", descriptionText: text, displayed: false)
-			results << createEvent(name: "carbonMonoxide", value: "clear", displayed: false)
-			name = "clear"
-			break
-		case "testClear":
-			text = "$device.displayName test cleared"
-			results << createEvent(name: "smoke",          value: "clear", descriptionText: text, displayed: false)
-			results << createEvent(name: "carbonMonoxide", value: "clear", displayed: false)
-			name = "clear"
-			break
+	if (name == "smoke") {
+		text = "$device.displayName smoke was detected!"
+		// these are displayed:false because the composite event is the one we want to see in the app
+		results << createEvent(name: "smoke",          value: "detected", descriptionText: text, displayed: false)
+	} else if (name == "carbonMonoxide") {
+		text = "$device.displayName carbon monoxide was detected!"
+		results << createEvent(name: "carbonMonoxide", value: "detected", descriptionText: text, displayed: false)
+	} else if (name == "tested") {
+		text = "$device.displayName was tested"
+		results << createEvent(name: "smoke",          value: "tested", descriptionText: text, displayed: false)
+		results << createEvent(name: "carbonMonoxide", value: "tested", descriptionText: text, displayed: false)
+	} else if (name == "smokeClear") {
+		text = "$device.displayName smoke is clear"
+		results << createEvent(name: "smoke",          value: "clear", descriptionText: text, displayed: false)
+		name = "clear"
+	} else if (name == "carbonMonoxideClear") {
+		text = "$device.displayName carbon monoxide is clear"
+		results << createEvent(name: "carbonMonoxide", value: "clear", descriptionText: text, displayed: false)
+		name = "clear"
+	} else if (name == "testClear") {
+		text = "$device.displayName smoke is clear"
+		results << createEvent(name: "smoke",          value: "clear", descriptionText: text, displayed: false)
+		results << createEvent(name: "carbonMonoxide", value: "clear", displayed: false)
+		name = "clear"
 	}
 	// This composite event is used for updating the tile
 	results << createEvent(name: "alarmState", value: name, descriptionText: text)
@@ -144,10 +117,8 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, results) {
 			createSmokeOrCOEvents(cmd.alarmLevel ? "tested" : "testClear", results)
 			break
 		case 13:  // sent every hour -- not sure what this means, just a wake up notification?
-			if (cmd.alarmLevel == 255) {
-				results << createEvent(descriptionText: "$device.displayName checked in", isStateChange: false)
-			} else {
-				results << createEvent(descriptionText: "$device.displayName code 13 is $cmd.alarmLevel", isStateChange:true, displayed:false)
+			if (cmd.alarmLevel != 255) {
+				results << createEvent(descriptionText: "$device.displayName code 13 is $cmd.alarmLevel", displayed: true)
 			}
 			
 			// Clear smoke in case they pulled batteries and we missed the clear msg
@@ -156,8 +127,9 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd, results) {
 			}
 			
 			// Check battery if we don't have a recent battery event
-			if (!state.lastbatt || (now() - state.lastbatt) >= 48*60*60*1000) {
-				results << response(zwave.batteryV1.batteryGet())
+			def prevBattery = device.currentState("battery")
+			if (!prevBattery || (new Date().time - prevBattery.date.time)/60000 >= 60 * 53) {
+				results << new physicalgraph.device.HubAction(zwave.batteryV1.batteryGet().format())
 			}
 			break
 		default:
@@ -186,21 +158,12 @@ def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd,
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd, results) {
+	results << new physicalgraph.device.HubAction(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
 	results << createEvent(descriptionText: "$device.displayName woke up", isStateChange: false)
-	if (!state.lastbatt || (now() - state.lastbatt) >= 56*60*60*1000) {
-		results << response([
-				zwave.batteryV1.batteryGet().format(),
-				"delay 2000",
-				zwave.wakeUpV1.wakeUpNoMoreInformation().format()
-			])
-	} else {
-		results << response(zwave.wakeUpV1.wakeUpNoMoreInformation())
-	}
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, results) {
-	def map = [ name: "battery", unit: "%", isStateChange: true ]
-	state.lastbatt = now()
+	def map = [ name: "battery", unit: "%" ]
 	if (cmd.batteryLevel == 0xFF) {
 		map.value = 1
 		map.descriptionText = "$device.displayName battery is low!"
@@ -208,18 +171,6 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd, results
 		map.value = cmd.batteryLevel
 	}
 	results << createEvent(map)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd, results) {
-	def encapsulatedCommand = cmd.encapsulatedCommand([ 0x80: 1, 0x84: 1, 0x71: 2, 0x72: 1 ])
-	state.sec = 1
-	log.debug "encapsulated: ${encapsulatedCommand}"
-	if (encapsulatedCommand) {
-		zwaveEvent(encapsulatedCommand, results)
-	} else {
-		log.warn "Unable to extract encapsulated cmd from $cmd"
-		results << createEvent(descriptionText: cmd.toString())
-	}
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd, results) {

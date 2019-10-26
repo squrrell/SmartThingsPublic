@@ -1,5 +1,3 @@
-//DEPRECATED. INTEGRATION MOVED TO SUPER LAN CONNECT
-
 /**
  *  Copyright 2015 SmartThings
  *
@@ -36,11 +34,11 @@
 
 	// UI tile definitions
     tiles(scale: 2) {
-        multiAttributeTile(name:"rich-control", type: "generic", canChangeIcon: true){
+        multiAttributeTile(name:"rich-control", type: "motion", canChangeIcon: true){
             tileAttribute ("device.motion", key: "PRIMARY_CONTROL") {
-                 attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#00A0DC"
-                 attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#cccccc"
-                 attributeState "offline", label:'${name}', icon:"st.motion.motion.active", backgroundColor:"#cccccc"
+                 attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
+                 attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
+                 attributeState "offline", label:'${name}', icon:"st.motion.motion.active", backgroundColor:"#ff0000"
  			}
             tileAttribute ("currentIP", key: "SECONDARY_CONTROL") {
              	 attributeState "currentIP", label: ''
@@ -48,8 +46,8 @@
         }
 
 		standardTile("motion", "device.motion", width: 2, height: 2) {
-			state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#00A0DC")
-			state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#CCCCCC")
+			state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0")
+			state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff")
       		state("offline", label:'${name}', icon:"st.motion.motion.inactive", backgroundColor:"#ff0000")
 		}
 
@@ -80,7 +78,7 @@ def parse(String description) {
 	def bodyString = msg.body
 	if (bodyString) {
     	unschedule("setOffline")
-        def body = new XmlSlurper().parseText(bodyString.replaceAll("[^\\x20-\\x7e]", ""))
+		def body = new XmlSlurper().parseText(bodyString)
 		if (body?.property?.TimeSyncRequest?.text()) {
 			log.trace "Got TimeSyncRequest"
 			result << timeSyncResponse()

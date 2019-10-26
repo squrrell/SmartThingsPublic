@@ -15,7 +15,6 @@
  */
 metadata {
 	definition (name: "Netatmo Outdoor Module", namespace: "dianoga", author: "Brian Steere") {
-		capability "Sensor"
 		capability "Relative Humidity Measurement"
 		capability "Temperature Measurement"
 	}
@@ -62,4 +61,3 @@ def parse(String description) {
 def poll() {
 	parent.poll()
 }
-

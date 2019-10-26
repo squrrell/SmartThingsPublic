@@ -16,7 +16,7 @@
  *  Date: 2013-03-09
  */
 metadata {
-	definition (name: "SmartSense Garage Door Multi", namespace: "smartthings", author: "SmartThings", runLocally: true, minHubCoreVersion: '000.017.0012', executeCommandsLocally: false, mnmn: "SmartThings", vid: "generic-contact-2") {
+	definition (name: "SmartSense Garage Door Multi", namespace: "smartthings", author: "SmartThings") {
 		capability "Three Axis"
 		capability "Contact Sensor"
 		capability "Acceleration Sensor"
@@ -50,18 +50,18 @@ metadata {
 	tiles(scale: 2) {
 		multiAttributeTile(name:"status", type: "generic", width: 6, height: 4){
 			tileAttribute ("device.status", key: "PRIMARY_CONTROL") {
-				attributeState "closed", label:'${name}', icon:"st.doors.garage.garage-closed", backgroundColor:"#00A0DC", nextState:"opening"
-				attributeState "open", label:'${name}', icon:"st.doors.garage.garage-open", backgroundColor:"#e86d13", nextState:"closing"
-				attributeState "opening", label:'${name}', icon:"st.doors.garage.garage-opening", backgroundColor:"#e86d13"
-				attributeState "closing", label:'${name}', icon:"st.doors.garage.garage-closing", backgroundColor:"#00A0DC"
+				attributeState "closed", label:'${name}', icon:"st.doors.garage.garage-closed", backgroundColor:"#79b821", nextState:"opening"
+				attributeState "open", label:'${name}', icon:"st.doors.garage.garage-open", backgroundColor:"#ffa81e", nextState:"closing"
+				attributeState "opening", label:'${name}', icon:"st.doors.garage.garage-opening", backgroundColor:"#ffe71e"
+				attributeState "closing", label:'${name}', icon:"st.doors.garage.garage-closing", backgroundColor:"#ffe71e"
 			}
 		}
 		standardTile("contact", "device.contact", width: 2, height: 2) {
-			state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#e86d13")
-			state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#00A0DC")
+			state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#ffa81e")
+			state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821")
 		}
 		standardTile("acceleration", "device.acceleration", decoration: "flat", width: 2, height: 2) {
-			state("active", label:'${name}', icon:"st.motion.acceleration.active", backgroundColor:"#00A0DC")
+			state("active", label:'${name}', icon:"st.motion.acceleration.active", backgroundColor:"#53a7c0")
 			state("inactive", label:'${name}', icon:"st.motion.acceleration.inactive", backgroundColor:"#ffffff")
 		}
 		valueTile("temperature", "device.temperature", decoration: "flat", width: 2, height: 2) {
@@ -77,18 +77,18 @@ metadata {
 		main(["status", "contact", "acceleration"])
 		details(["status", "contact", "acceleration", "temperature", "3axis", "battery"])
 	}
-
+    
 	preferences {
 		input title: "Temperature Offset", description: "This feature allows you to correct any temperature variations by selecting an offset. Ex: If your sensor consistently reports a temp that's 5 degrees too warm, you'd enter \"-5\". If 3 degrees too cold, enter \"+3\".", displayDuringSetup: false, type: "paragraph", element: "paragraph"
 		input "tempOffset", "number", title: "Degrees", description: "Adjust temperature by this many degrees", range: "*..*", displayDuringSetup: false
-	}
+	}    
 }
 
 def parse(String description) {
 	log.debug "parse($description)"
-	def results = [:]
+	def results = null
 
-	if (!isSupportedDescription(description) || description.startsWith("zone")) {
+	if (!isSupportedDescription(description) || zigbee.isZoneType19(description)) {
 		// Ignore this in favor of orientation-based state
 		// results = parseSingleMessage(description)
 	}
@@ -105,7 +105,7 @@ def updated() {
     def threeAxis = device.currentState("threeAxis")
     if (threeAxis) {
     	def xyz = threeAxis.xyzValue
-        def value = Math.round(xyz.z) > 925 ? "open" : "closed"
+        def value = Math.round(xyz.z) > 925 ? "open" : "closed" 
     	sendEvent(name: "contact", value: value)
     }
 }
@@ -212,17 +212,18 @@ private List parseOrientationMessage(String description) {
 
 	// Looks for Z-axis orientation as virtual contact state
 	def a = xyz.value.split(',').collect{it.toInteger()}
+	def absValueXY = Math.max(Math.abs(a[0]), Math.abs(a[1]))
 	def absValueZ = Math.abs(a[2])
-	log.debug "absValueZ: $absValueZ"
+	log.debug "absValueXY: $absValueXY, absValueZ: $absValueZ"
 
 
-	if (absValueZ > 825) {
+	if (absValueZ > 825 && absValueXY < 175) {
 		results << createEvent(name: "contact", value: "open", unit: "")
 		results << createEvent(name: "status", value: "open", unit: "")
 		results << createEvent(name: "door", value: "open", unit: "")
 		log.debug "STATUS: open"
 	}
-	else if (absValueZ < 100) {
+	else if (absValueZ < 75 && absValueXY > 825) {
 		results << createEvent(name: "contact", value: "closed", unit: "")
 		results << createEvent(name: "status", value: "closed", unit: "")
 		results << createEvent(name: "door", value: "closed", unit: "")
